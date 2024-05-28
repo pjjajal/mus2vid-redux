@@ -148,11 +148,11 @@ def create_app():
             ):
                 dpg.add_file_extension(
                     ".wav",
-                    color=(0, 0, 255, 255),
+                    color=(0, 255, 128, 255),
                 )
                 dpg.add_file_extension(
                     ".mp3",
-                    color=(0, 0, 255, 255),
+                    color=(0, 255, 128, 255),
                 )
             dpg.add_button(
                 label="Select Audio File",

@@ -10,7 +10,7 @@ import torch
 @dataclass
 class DefaultGenConfig:
     audio_weight: float = 1.5
-    # prompt: str = "Describe the song. Listen to this song and describe the painting that come to mind when you listen to it. The painting has as person in it. Describe the rest of the painting."
+    # another good prompt: Based upon this music what should I draw explain in detail the subjects and the emotions. 
     prompt: str = "Describe in detail the emotions in this music."
     cache_size: int = 100
     cache_t: float = 20.0
