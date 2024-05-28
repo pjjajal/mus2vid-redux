@@ -1,0 +1,3 @@
+[submodule "thirdparty/mullama"]
+	path = thirdparty/mullama
+	url = https://github.com/pjjajal/MU-LLaMA.git
