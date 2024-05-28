@@ -4,4 +4,9 @@ import thirdparty.mullama.mullama.llama as llama
 
 
 if __name__ == "__main__":
-    model = llama.load("thirdparty/mullama/mullama/ckpts/checkpoint.pth", llama_dir="thirdparty/mullama/mullama/ckpts/LLaMA", knn=True, knn_dir="thirdparty/mullama/mullama/ckpts")
+    model = llama.load(
+        "thirdparty/mullama/mullama/ckpts/checkpoint.pth",
+        llama_dir="thirdparty/mullama/mullama/ckpts/LLaMA",
+        knn=False,
+        knn_dir="thirdparty/mullama/mullama/ckpts",
+    )
