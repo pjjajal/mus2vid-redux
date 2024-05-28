@@ -1,6 +1,7 @@
 # mus2vid-redux
 a soirée into music-to-video/image generation.
 
+(note: clone this repo with --recurse-submodules)
 ## setup
 
 ### environment setup
