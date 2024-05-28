@@ -6,10 +6,11 @@ from dataclasses import dataclass
 import dearpygui.dearpygui as dpg
 import numpy as np
 import PIL.Image as Image
+from mus2vid.mullm import DefaultGenConfig, ImageGenerator
 
 IMG_HEIGHT = 512
 IMG_WIDTH = 512
-MENU_HEIGHT = 64
+MENU_HEIGHT = 96
 MENU_WIDTH = 512
 
 VP_WIDTH = IMG_WIDTH
@@ -21,24 +22,38 @@ VP_HEIGHT = IMG_HEIGHT + MENU_HEIGHT
 
 @dataclass
 class State:
-    prompt: str = ""
     running: bool = False
+    generator: "str" = "random"
+    audio_path: "str" = None
 
 
 # This is just used to update the texture.
-def update_image(sender):
-    data = np.random.random((IMG_HEIGHT * IMG_WIDTH * 4)) # 4 since RGBA.
+def update_image(img):
     # update the texture by setting a new value of the dynamic texture.
     # dynamic texture is in RGBA format.
-    dpg.set_value("texture", data)
+    dpg.set_value("texture", img)
 
 
 def generate_image_thread(sender):
-    print("Generating image with prompt:", STATE.prompt)
-
-    for i in range(100):
-        time.sleep(0.01)
-    update_image(sender)
+    print("Generating image with prompt:", DEFAULT_CONFIG.prompt)
+    if STATE.generator == "random":
+        img = np.random.random((IMG_HEIGHT * IMG_WIDTH * 4))  # 4 since RGBA.
+        time.sleep(0.5)
+    elif STATE.generator == "mullm":
+        # TODO: Do proper exception handling.
+        try: 
+            img = IMAGE_GENERATOR(STATE.audio_path)
+            img = img.convert("RGBA")
+            img = np.array(img).flatten() / 255.0
+        except:
+            print("Error generating image.")
+            STATE.running = False
+            dpg.enable_item(sender)
+            dpg.set_item_label(sender, "generate")
+            return 
+        print("Image generated.")
+    
+    update_image(img)
     STATE.running = False
 
     # re-enable the generate button and revert its label.
@@ -49,7 +64,7 @@ def generate_image_thread(sender):
 
 
 def prompt_update(sender, app_data):
-    STATE.prompt = app_data
+    DEFAULT_CONFIG.prompt = app_data
 
 
 def generate(sender, app_data):
@@ -61,10 +76,35 @@ def generate(sender, app_data):
         dpg.set_item_label(sender, "generating...")
         # update state and start thread
         STATE.running = True
-        thread = threading.Thread(
-            target=generate_image_thread, args=(sender,), daemon=True
-        )
-        thread.start()
+
+        # if-else to check if we are using mullm an audio file is selected.
+        if STATE.generator == "mullm" and STATE.audio_path is None:
+            print("No audio file selected.")
+            STATE.running = False
+            dpg.enable_item(sender)
+            dpg.set_item_label(sender, "generate")
+            return
+        else:
+            thread = threading.Thread(
+                target=generate_image_thread, args=(sender,), daemon=True
+            )
+            thread.start()
+
+
+def open_file_dialog(sender, app_data):
+    dpg.show_item("file_dialog_id")
+
+
+def file_callback(sender, app_data):
+    audio_paths = list(app_data["selections"].values())
+    STATE.audio_path = audio_paths[0]
+    print("File Selected: ", STATE.audio_path)
+
+
+def file_cancel_callback(sender, app_data):
+    print("Cancel was clicked.")
+    print("Sender: ", sender)
+    print("App Data: ", app_data)
 
 
 def create_app():
@@ -96,12 +136,41 @@ def create_app():
 
         # Menu window
         with dpg.child_window(tag="menu", width=MENU_WIDTH, height=MENU_HEIGHT):
+
+            # This is file dialog stuff.
+            with dpg.file_dialog(
+                directory_selector=False,
+                show=False,
+                callback=file_callback,
+                id="file_dialog_id",
+                width=IMG_WIDTH,
+                height=IMG_HEIGHT,
+            ):
+                dpg.add_file_extension(
+                    ".wav",
+                    color=(0, 0, 255, 255),
+                )
+                dpg.add_file_extension(
+                    ".mp3",
+                    color=(0, 0, 255, 255),
+                )
+            dpg.add_button(
+                label="Select Audio File",
+                callback=open_file_dialog,
+                width=-1,
+                height=24,
+            )
+
+            # Prompt stuff
             dpg.add_input_text(
                 hint="Prompt",
                 width=-1,
-                height=16,
+                height=24,
                 callback=prompt_update,
+                default_value=DEFAULT_CONFIG.prompt,
             )
+
+            # Generate button
             with dpg.group(horizontal=True):
                 #     progress_bar = dpg.add_progress_bar(
                 #         default_value=0, overlay="0%", height=32, width=PROGRESS_BAR_WIDTH
@@ -109,7 +178,7 @@ def create_app():
                 dpg.add_button(
                     label="generate",
                     callback=generate,
-                    height=32,
+                    height=44,
                     width=-1,
                 )
 
@@ -130,6 +199,15 @@ def main(args):
     global STATE
     STATE = State()
     STATE.running = False
+    STATE.generator = args.generator
+
+    # create global default config.
+    global DEFAULT_CONFIG
+    DEFAULT_CONFIG = DefaultGenConfig()
+
+    if STATE.generator == "mullm":
+        global IMAGE_GENERATOR
+        IMAGE_GENERATOR = ImageGenerator(default_config=DEFAULT_CONFIG)
 
     # set global font scale.
     dpg.set_global_font_scale(1.25)
@@ -170,10 +248,14 @@ def main(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
+
+    # These arguments are debug options
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument("--item-registry", action="store_true", default=False)
     parser.add_argument("--style-editor", action="store_true", default=False)
     parser.add_argument("--resizable", action="store_true", default=False)
+
+    parser.add_argument("--generator", choices=["random", "mullm"], default="random")
     return parser.parse_args()
 
 
